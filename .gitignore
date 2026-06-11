@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# uv
+uv.lock
+
+# Outputs / artifacts / data
+outputs/
+data/
+mlruns/
+mlflow.db
+*.pt
+*.safetensors
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

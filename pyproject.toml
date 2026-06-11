@@ -1,0 +1,26 @@
+[project]
+name = "act-sim"
+version = "0.1.0"
+description = "ACT (Action Chunking Transformer) on the ALOHA sim transfer-cube task: custom implementation, a faithful vendored copy of the official tonyzhaozh/act DETRVAE, and stock-LeRobot training/eval. Extracted from omx-training."
+requires-python = ">=3.12"
+dependencies = [
+    # core
+    "torch",
+    "torchvision",
+    "numpy",
+    # LeRobot stack (datasets, stock ACT policy, train/eval) + sim env
+    "lerobot[training]>=0.5.1",
+    "gym-aloha>=0.1.4",
+    "accelerate",
+    "huggingface-hub>=1.0,<2.0",
+    # benchmark hdf5 dataset loading + parquet splits
+    "h5py>=3.15",
+    "pandas",
+    "pyarrow",
+    "av>=15,<16",
+    # experiment tracking (optional; disable with ACT_DISABLE_MLFLOW=1)
+    "mlflow>=2.17",
+]
+
+[tool.uv.sources]
+lerobot = { git = "https://github.com/huggingface/lerobot.git", rev = "main" }
