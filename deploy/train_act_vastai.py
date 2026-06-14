@@ -38,6 +38,14 @@ REMOTE_WORKSPACE = "/workspace/act-sim"
 REMOTE_LOG = "/workspace/act-sim/train.log"
 DEFAULT_IMAGE = "nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04"
 BAD_STATUSES = {"offline", "exited", "error", "dead"}
+BAD_STATUS_MESSAGES = (
+    "OCI runtime create failed",
+    "failed to create task for container",
+    "failed to inject CDI devices",
+    "pull access denied",
+    "manifest unknown",
+    "unauthorized",
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -162,7 +170,10 @@ def wait_for_instance_running(vast: VastAI, instance_id: int) -> dict:
         if not isinstance(data, dict):
             raise RuntimeError(f"Unexpected show_instance result: {data}")
         status = data.get("actual_status", data.get("status_msg", "unknown"))
+        status_msg = str(data.get("status_msg", ""))
         print(f"  status={status} elapsed={int(time.time() - start)}s")
+        if any(message in status_msg for message in BAD_STATUS_MESSAGES):
+            raise RuntimeError(f"Instance startup failed: {status_msg}")
         if status == "running":
             if not data.get("ssh_host") or not data.get("ssh_port"):
                 raise RuntimeError("Instance is running but does not report ssh_host/ssh_port.")
@@ -358,6 +369,11 @@ def destroy_instance(vast: VastAI, instance_id: int) -> None:
 
 
 def main() -> None:
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except AttributeError:
+        pass
+
     args = parse_args()
     api_key = os.environ.get("VASTAI_API_KEY") or os.environ.get("VAST_API_KEY")
     if not api_key:
