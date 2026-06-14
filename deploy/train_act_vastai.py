@@ -28,7 +28,7 @@ from vastai_sdk import VastAI
 
 
 POLL_INTERVAL = 15
-BOOT_TIMEOUT = 1200
+BOOT_TIMEOUT = 480
 SSH_TIMEOUT = 900
 SEARCH_LIMIT = 20
 SEARCH_ORDER = "dph+"
@@ -54,6 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--gpu-name", default=os.environ.get("OMX_GPU_NAME", "RTX_3090"))
     parser.add_argument("--min-gpu-ram-mb", type=int, default=20_000)
     parser.add_argument("--disk-gb", type=int, default=80)
+    parser.add_argument("--boot-timeout", type=int, default=BOOT_TIMEOUT)
     parser.add_argument("--image", default=os.environ.get("OMX_VAST_IMAGE", DEFAULT_IMAGE))
     parser.add_argument("--instance-label", default="act-sim-one-batch-smoke")
     parser.add_argument("--remote-workspace", default=REMOTE_WORKSPACE)
@@ -162,10 +163,10 @@ def attach_ssh_key(vast: VastAI, instance_id: int) -> None:
     print("SSH key attached")
 
 
-def wait_for_instance_running(vast: VastAI, instance_id: int) -> dict:
+def wait_for_instance_running(vast: VastAI, instance_id: int, timeout: int) -> dict:
     print("Waiting for instance to boot...")
     start = time.time()
-    while time.time() - start < BOOT_TIMEOUT:
+    while time.time() - start < timeout:
         data = coerce_result_data(vast.show_instance(id=instance_id))
         if not isinstance(data, dict):
             raise RuntimeError(f"Unexpected show_instance result: {data}")
@@ -181,7 +182,7 @@ def wait_for_instance_running(vast: VastAI, instance_id: int) -> dict:
         if status in BAD_STATUSES:
             raise RuntimeError(f"Instance entered bad status: {status}")
         time.sleep(POLL_INTERVAL)
-    raise TimeoutError(f"Instance not running after {BOOT_TIMEOUT}s")
+    raise TimeoutError(f"Instance not running after {timeout}s")
 
 
 def ssh_base(instance: dict) -> list[str]:
@@ -421,7 +422,7 @@ def main() -> None:
                     raise RuntimeError(f"Failed to parse instance ID from: {result}")
                 print(f"Instance {instance_id} launched")
                 attach_ssh_key(vast, instance_id)
-                instance = wait_for_instance_running(vast, instance_id)
+                instance = wait_for_instance_running(vast, instance_id, args.boot_timeout)
                 break
             except Exception as exc:
                 last_error = exc
