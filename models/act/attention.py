@@ -18,12 +18,12 @@ class TransformerBlock(nn.Module):
         self.cross_norm = nn.LayerNorm(dim) if use_cross_attention else None
         self.mlp_norm = nn.LayerNorm(dim)
 
-    def forward(self, x, encoder_out=None, future_mask=None, pos=None, query_pos=None):
+    def forward(self, x, encoder_out=None, key_padding_mask=None, pos=None, query_pos=None):
         # Decoder blocks position their self-attention with the query positions;
         # encoder blocks position theirs with the token positions (pos).
         self_pos = query_pos if self.cross_attn is not None else pos
         self_norm = self.self_norm(x)
-        attn_output = self.self_attn(self_norm, future_mask=future_mask, pos=self_pos)
+        attn_output = self.self_attn(self_norm, key_padding_mask=key_padding_mask, pos=self_pos)
         x = x + attn_output
 
         if self.cross_attn is not None and encoder_out is not None:
@@ -50,13 +50,12 @@ class Attention(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.use_cross_attention = use_cross_attention
         self.last_attn_weights = None
-        self._debug_print_count = 0
         if use_cross_attention:
             self.cross_q_proj = nn.Linear(dim, dim)
             self.cross_k_proj = nn.Linear(dim, dim)
             self.cross_v_proj = nn.Linear(dim, dim)
 
-    def forward(self, x, encoder_out=None, future_mask=None, pos=None, query_pos=None):
+    def forward(self, x, encoder_out=None, key_padding_mask=None, pos=None, query_pos=None):
         B, T, C = x.size()
         if self.use_cross_attention and encoder_out is not None:
             S = encoder_out.size(1)
@@ -66,8 +65,8 @@ class Attention(nn.Module):
             cross_k = self.cross_k_proj(k_in).reshape(B, S, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
             cross_v = self.cross_v_proj(encoder_out).reshape(B, S, self.num_heads, self.head_dim).permute(0, 2, 1, 3)
             attn_weights = (cross_q @ cross_k.transpose(-2, -1)) / (self.head_dim ** 0.5)
-            if future_mask is not None:
-                attn_weights = attn_weights.masked_fill(future_mask == 0, torch.finfo(attn_weights.dtype).min)
+            if key_padding_mask is not None:
+                attn_weights = attn_weights.masked_fill(key_padding_mask == 0, torch.finfo(attn_weights.dtype).min)
             attn_weights = F.softmax(attn_weights, dim=-1)
             self.last_attn_weights = attn_weights.detach()
 
@@ -86,20 +85,10 @@ class Attention(nn.Module):
             q, k, v = qk[0], qk[1], qkv[2]
 
         attn_weights = (q @ k.transpose(-2, -1)) / (self.head_dim ** 0.5)
-        if future_mask is not None:
-            attn_weights = attn_weights.masked_fill(future_mask == 0, torch.finfo(attn_weights.dtype).min)
+        if key_padding_mask is not None:
+            attn_weights = attn_weights.masked_fill(key_padding_mask == 0, torch.finfo(attn_weights.dtype).min)
         attn_weights = F.softmax(attn_weights, dim=-1)
         self.last_attn_weights = attn_weights.detach()
-
-        cls_attn = attn_weights[:, :, 0, :]
-        cls_act_attn = cls_attn[..., 2:]
-        max_cls_act_attn = cls_act_attn.max(dim=-1).values
-        topk_vals, topk_idxs = cls_act_attn.topk(min(10, cls_act_attn.shape[-1]), dim=-1)
-        if self._debug_print_count % 100 == 0:
-            print("Max attention:", max_cls_act_attn.mean().item(), flush=True)
-            print("Topk vals:", topk_vals[0, 0].detach().cpu().tolist(), flush=True)
-            print("Topk idxs:", topk_idxs[0, 0].detach().cpu().tolist(), flush=True)
-        self._debug_print_count += 1
 
         attn_weights = self.dropout(attn_weights)
         attn_output = (attn_weights @ v).transpose(1, 2).reshape(B, T, C)

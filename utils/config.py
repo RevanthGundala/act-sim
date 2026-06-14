@@ -35,7 +35,7 @@ FPS = 30
 TELEOP_FPS = 60
 
 # ── Dataset & Models ──
-RECORD_DATASET_REPO_ID = "RevanthGundala/006-place-penne-pasta-in-bowl"
+RECORD_DATASET_REPO_ID = "RevanthGundala/007-place-penne-pasta-in-bowl"
 TRAIN_DATASET_REPO_ID = "RevanthGundala/003-pour-water"
 PI0_MODEL_REPO_ID = "lerobot/pi0"
 PI05_MODEL_REPO_ID = "lerobot/pi05_base"

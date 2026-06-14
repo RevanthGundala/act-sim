@@ -25,9 +25,11 @@ class ACTConfig:
 
     # Model
     d_model: int = 512
+    joint_dim: int = 6
     d_z: int = 32
+    num_vae_encoder_layers: int = 4
     num_encoder_layers: int = 4
-    num_decoder_layers: int = 7
+    num_decoder_layers: int = 1 # known bug in main act implementation
     num_heads: int = 8
     mlp_dim: int = 3200
     dropout: float = 0.1

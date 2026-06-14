@@ -61,6 +61,13 @@ python -m models.act_official.train_official --profile sim_transfer_cube_single_
 modal run --detach deploy/train_custom_act_modal.py::train_remote   --profile sim_transfer_cube_reference
 modal run --detach deploy/train_official_act_modal.py::train_remote --profile sim_transfer_cube_reference
 
+# Vast.ai one-batch ACT overfit/debug run:
+# Optional but recommended first step:
+# docker build -f deploy/vastai.Dockerfile -t <your-dockerhub-user>/act-sim-vastai:latest .
+# docker push <your-dockerhub-user>/act-sim-vastai:latest
+OMX_VAST_IMAGE=<your-dockerhub-user>/act-sim-vastai:latest \
+  uv run python deploy/train_act_vastai.py --steps 300
+
 # MuJoCo success-rate eval (needs a tonyzhaozh/act checkout for sim_env):
 python -m models.act.eval --checkpoint <run>/checkpoint_last.pt --act-repo-dir /path/to/tonyzhaozh/act --episodes 50
 python -m models.act_official.eval_official --checkpoint <run>/checkpoint_last.pt --act-repo-dir /path/to/tonyzhaozh/act --episodes 50

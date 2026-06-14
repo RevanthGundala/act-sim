@@ -1,0 +1,15 @@
+.git/
+.venv/
+__pycache__/
+*.py[cod]
+
+outputs/
+data/
+mlruns/
+mlflow.db
+*.pt
+*.safetensors
+
+.DS_Store
+.vscode/
+.idea/
