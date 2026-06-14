@@ -234,22 +234,43 @@ def wait_for_ssh(instance: dict) -> None:
 
 def bootstrap_remote(instance: dict) -> None:
     print("Checking remote Python/CUDA readiness...")
+    readiness_command = r"""bash -lc 'set -euo pipefail
+test -x /opt/venv/bin/python
+/opt/venv/bin/python - <<PY
+import torch
+print("Torch:", torch.__version__)
+print("CUDA runtime:", torch.version.cuda)
+if not torch.cuda.is_available():
+    raise SystemExit("CUDA is not available.")
+print("Detected GPU:", torch.cuda.get_device_name(0))
+PY
+'"""
+    try:
+        run_ssh(instance, readiness_command)
+        return
+    except subprocess.CalledProcessError:
+        print("Prebuilt image readiness check failed; falling back to remote bootstrap install.")
+
     command = r"""bash -lc 'set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 if ! command -v python3 >/dev/null 2>&1 || ! python3 -m venv --help >/dev/null 2>&1; then
+  echo "Installing system dependencies..."
   apt-get update -qq
-  apt-get install -y -qq python3 python3-dev python3-pip python3-venv git ffmpeg linux-libc-dev build-essential clang rsync >/dev/null
+  apt-get install -y -qq python3 python3-dev python3-pip python3-venv git ffmpeg linux-libc-dev build-essential clang rsync
 fi
 if [[ ! -d /opt/venv ]]; then
+  echo "Creating /opt/venv..."
   python3 -m venv /opt/venv
 fi
 . /opt/venv/bin/activate
-python -m pip install --no-cache-dir --upgrade pip >/dev/null
-if ! python - <<PY >/dev/null 2>&1
+echo "Checking CUDA Torch..."
+python -m pip install --no-cache-dir --upgrade pip
+if ! python - <<PY
 import torch
 raise SystemExit(0 if torch.cuda.is_available() else 1)
 PY
 then
+  echo "Installing CUDA Torch..."
   python -m pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu124
 fi
 python - <<PY
